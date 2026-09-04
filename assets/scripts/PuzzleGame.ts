@@ -280,8 +280,8 @@ export class PuzzleGame extends Component {
         veil.fill();
 
         // 标题放按钮上方（背景人脸在画面中上部，标题在其下方不挡脸），粉色花体
-        const title = this.createLabel(page, 'MM Puzzle', 190, THEME_PINK, new Vec3(0, 130, 0));
-        this.applyScriptFont(title, 190);
+        const title = this.createLabel(page, 'MM Puzzle', 150, THEME_PINK, new Vec3(0, 150, 0));
+        this.applyScriptFont(title, 150);
 
         this.createButton(page, 'Start', 560, 160, new Vec3(0, -130, 0),
             () => this.showLevelPage(), 60, THEME_BLUE);
