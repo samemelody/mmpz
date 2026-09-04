@@ -10,9 +10,10 @@
 - 发布流程（每次更新后）：①编辑器命令行构建 `"C:\ProgramData\cocos\editors\Creator\3.8.8\CocosCreator.exe" --project <项目路径> --build "platform=web-mobile;debug=false"`（约 2 分钟）→ ②在 `build/web-mobile` 里 `touch .nojekyll`，该目录已 `git init` 且远端指向同一仓库，`git add -A && git commit && git push -f origin gh-pages` → ③GitHub 仓库 Settings → Pages → 分支选 `gh-pages`
 - 在线地址：https://samemelody.github.io/mmpz/
 - 注意：GitHub 直连时通时断，推送失败就等几分钟重试；`build/web-mobile` 是嵌套 git 仓库（父仓库已 ignore build/），别把它当源码仓库用
-- **⚠️ 构建后必做两处**：
+- **⚠️ 构建后必做三处**（少一个线上就挂）：
   1. Pages 挂在子路径 `/mmpz/` 下，而 Cocos 构建默认 `"server":""`（资源从网站根路径加载 → 全 404，游戏有界面没图）。每次构建完要把 `build/web-mobile/src/settings.json` 里 `assets.server` 改成 `"/mmpz/"`
-  2. **重新构建会清空 `build/web-mobile`（连同里面嵌套的 .git）**，所以每次部署要重新 `git init -b gh-pages` + `git remote add origin` + commit + `push -f origin gh-pages`，不要以为嵌套仓库还在
+  2. **`touch .nojekyll`**！Pages 默认跑 Jekyll，会吞掉所有下划线开头的文件（`cocos-js/_virtual_cc-xxx.js` 404 → 引擎直接加载失败）。重建 git 仓库时最容易忘
+  3. **重新构建会清空 `build/web-mobile`（连同里面嵌套的 .git）**，所以每次部署要重新 `git init -b gh-pages` + `git remote add origin` + commit + `push -f origin gh-pages`，不要以为嵌套仓库还在
 
 游戏已可完整游玩：开始页 → 选关页 → 拼图 → 结算，全流程无报错。
 
