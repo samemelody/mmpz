@@ -86,6 +86,7 @@ export class PuzzleGame extends Component {
     private bgShowB: Sprite | null = null;      // 交叉淡入用的顶层图
     private bgShowLv = 0;                       // 当前显示的关卡图（避免连续重复）
     private startBg: Sprite | null = null;      // 开始页固定背景（source1 整图）
+    private startLoadingLabel: Label | null = null; // 开始页「Loading...」（资源检测完隐藏）
 
     // ---------- 计时器 ----------
     private elapsed = 0;
@@ -114,35 +115,41 @@ export class PuzzleGame extends Component {
     // =====================================================================
 
     private detectLevels() {
-        const probe = (lv: number) => {
-            resources.load(`source${lv}/full/spriteFrame`, SpriteFrame, (err, sf) => {
-                if (!err && sf) {
-                    this.levelCount = lv;
-                    this.thumbFrames[lv] = sf;
-                    probe(lv + 1);
-                    return;
-                }
-                // 没有整图时再试试单块图 sourceN/1
-                resources.load(`source${lv}/1/spriteFrame`, SpriteFrame, (e2) => {
-                    if (!e2) {
-                        this.levelCount = lv;
-                    }
-                    this.onDetectDone();
-                });
-            });
+        // 并行探测 source1..MAX_PROBE（串行逐关下载在网络慢时要等几十秒，
+        // 其间开始页没背景、点 Start 也没反应）。全部回调或超时后按「连续存在」的关数结算
+        const MAX_PROBE = 24;
+        let pending = MAX_PROBE;
+        let finished = false;
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            let n = 0;
+            while (this.thumbFrames[n + 1]) n++;
+            this.levelCount = n > 0 ? n : LEVELS; // 一个资源都没有：用兜底关卡数 + 占位色块
+            this.onDetectDone();
         };
-        probe(1);
+        for (let lv = 1; lv <= MAX_PROBE; lv++) {
+            resources.load(`source${lv}/full/spriteFrame`, SpriteFrame, (err, sf) => {
+                pending--;
+                if (!err && sf) {
+                    this.thumbFrames[lv] = sf;
+                    // source1 一到就先铺开始页背景，不等其余图片
+                    if (lv === 1 && this.startBg) this.setCoverSprite(this.startBg, sf);
+                }
+                if (pending <= 0) finish();
+            });
+        }
+        // 网络慢/个别请求挂住时的兜底：超时后按已加载到的结算
+        this.scheduleOnce(finish, 10);
     }
 
     private onDetectDone() {
-        if (this.levelCount <= 0) {
-            this.levelCount = LEVELS; // 一个资源都没有：用兜底关卡数 + 占位色块
-        }
         console.log('[PuzzleGame] 检测到关卡数:', this.levelCount);
         this.buildLevelPage();
         this.startBgSlideshow();
-        // 开始页背景固定用 source1
+        // 开始页背景固定用 source1（并行加载下通常已提前铺好，这里兜底同步一次）
         if (this.startBg) this.setCoverSprite(this.startBg, this.thumbFrames[1]);
+        if (this.startLoadingLabel) this.startLoadingLabel.node.active = false;
     }
 
     // =====================================================================
@@ -290,6 +297,9 @@ export class PuzzleGame extends Component {
                 const lv = 1 + Math.floor(Math.random() * (this.levelCount > 0 ? this.levelCount : LEVELS));
                 this.startGame(lv);
             }, 60, THEME_GREEN);
+
+        // 资源检测期间的提示（检测完隐藏）：网络慢时点 Start 没反应至少有个解释
+        this.startLoadingLabel = this.createLabel(page, 'Loading...', 40, THEME_SUB, new Vec3(0, -520, 0));
 
         this.startPage = page;
     }
