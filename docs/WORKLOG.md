@@ -4,6 +4,13 @@
 
 ## 当前状态（2026-09-02）
 
+**代码仓库与发布**
+
+- GitHub：https://github.com/samemelody/mmpz（`main` = 源码，`gh-pages` = 网页版产物）
+- 发布流程（每次更新后）：①编辑器命令行构建 `"C:\ProgramData\cocos\editors\Creator\3.8.8\CocosCreator.exe" --project <项目路径> --build "platform=web-mobile;debug=false"`（约 2 分钟）→ ②在 `build/web-mobile` 里 `touch .nojekyll`，该目录已 `git init` 且远端指向同一仓库，`git add -A && git commit && git push -f origin gh-pages` → ③GitHub 仓库 Settings → Pages → 分支选 `gh-pages`
+- 在线地址：https://samemelody.github.io/mmpz/
+- 注意：GitHub 直连时通时断，推送失败就等几分钟重试；`build/web-mobile` 是嵌套 git 仓库（父仓库已 ignore build/），别把它当源码仓库用
+
 游戏已可完整游玩：开始页 → 选关页 → 拼图 → 结算，全流程无报错。
 
 - 美术资源：`source1`~`source8` 共 8 关，每关都有 `full` + `finish`（source6 是 `full.jpg`，加载路径不带扩展名，jpg 自动适配）
