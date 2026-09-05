@@ -308,9 +308,13 @@ export class PuzzleGame extends Component {
         veil.roundRect(-540, -960, 1080, 1920, 0);
         veil.fill();
 
-        // 标题放按钮上方（背景人脸在画面中上部，标题在其下方不挡脸），粉色花体
-        const title = this.createLabel(page, 'MM Puzzle', 150, THEME_PINK, new Vec3(0, 150, 0));
-        this.applyScriptFont(title, 150);
+        // 标题放按钮上方（背景人脸在画面中上部，标题在其下方不挡脸）
+        // 游戏名《萌萌拼图》（微信小游戏备案要求纯中文）；Great Vibes 无中文字形，主标题用系统粗体
+        const title = this.createLabel(page, '萌萌拼图', 150, THEME_PINK, new Vec3(0, 150, 0));
+        title.isBold = true;
+        // 英文花体保留作装饰副标题，延续 MM 品牌
+        const subtitle = this.createLabel(page, 'MM Puzzle', 64, THEME_PINK, new Vec3(0, 280, 0));
+        this.applyScriptFont(subtitle, 64);
 
         this.createButton(page, 'Start', 560, 160, new Vec3(0, -130, 0),
             () => this.showLevelPage(), 60, THEME_BLUE);
