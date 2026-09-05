@@ -21,4 +21,10 @@ node_modules/
 #//////////////////////////
 # WebStorm
 #//////////////////////////
-.idea/
+.idea/bing.html
+baidu.html
+cocos_doc.html
+wx_doc.html
+build_wx_log.txt
+commit_log.txt
+push_log.txt
