@@ -2,6 +2,25 @@
 
 > 每次开发完往这里追加一节。忘了进度先看最上面的「当前状态」，再看最下面的日期倒序日志。
 
+## 2026-09-05（微信小游戏适配）
+
+**图片压缩 + 双 bundle 分包，wechatgame 构建调通**
+
+- 目标：除网页版外再发微信小游戏。个人主体注册免费，提审需软著（官方免费申请，周期 1~3 个月）
+- 关卡图 PNG→JPG（`tools/wechat_compress.py`，质量 85 起步递减、单张目标 ≤400KB）：**50MB → 5.3MB**。png+meta 删除，jpg 加载路径不带扩展名自动适配（source6 先例）
+- **关卡图拆两个 bundle**（微信主包限 4MB，单个 bundle 也是一个分包，全部压线不安全）：
+  - `assets/resources`：fonts + source1~4（约 2.6MB）
+  - `assets/levels2`（新建，meta 里 `isBundle:true, bundleName:"levels2"`）：source5~8（约 3.2MB）
+  - 代码侧 `PuzzleGame.loadLevelAsset(lv, path, type, cb)`：lv < `LEVELS2_START(5)` 走 `resources.load`，否则 `assetManager.loadBundle('levels2')` 后 `bundle.load`（bundle 引用缓存）。4 个加载点全部替换（detectLevels 探测 / loadImages 整图+块图回退 / finish 结算图）
+- **微信构建后处理**（`tools/wechat_postbuild.py`，每次 wechatgame 构建后必须跑）：
+  1. `assets/resources`、`assets/levels2` 移到 `build/wechatgame/subpackages/`
+  2. `src/settings.json` 的 `assets.subpackages = ["resources","levels2"]`（引擎 adapter 据此把 bundle 路径映射到 `subpackages/<名字>/`，自动走 `wx.loadSubpackage`）
+  3. `game.json` 增加 `subpackages: [{root, name}]`
+  - 结果：**主包 2.84MB(<4MB) + 分包 5.66MB，整包 8.51MB(<30MB)**
+- 构建命令：`CocosCreator.exe --project <项目> --build "platform=wechatgame;debug=false;buildPath=build"`
+- 微信开发者工具导入 `build/wechatgame` 即可预览；`project.config.json` 里 appid 是 Cocos 占位（wx6ac3…），注册后替换成自己的
+- 网页版不受影响：线上还是旧代码+旧资源结构，自洽；下次网页部署重新构建 web-mobile（届时 levels2 也会出现在网页版，代码两套 bundle 通吃）
+
 ## 2026-09-05（线上修复）
 
 **线上「首页没背景、点 Start 没反应」根因：关卡检测串行下载太慢**

@@ -1,7 +1,7 @@
 import {
     _decorator, Component, Node, Label, Sprite, SpriteFrame, Graphics, Color,
     resources, sys, Vec3, UITransform, Layers, view, ResolutionPolicy, Rect, Size, tween, Tween, Mask,
-    ScrollView, UIOpacity, Font,
+    ScrollView, UIOpacity, Font, assetManager, Asset,
 } from 'cc';
 import { GameData } from './GameData';
 
@@ -17,6 +17,9 @@ const GAP = 10;
 const GRID_W = COLS * TILE + (COLS - 1) * GAP;
 const GRID_H = ROWS * TILE + (ROWS - 1) * GAP;
 const LEVELS = 3;                   // 兜底关卡数（实际以 resources 里 sourceN 是否存在为准）
+// 微信小游戏主包限 4MB，关卡图拆两个 bundle：source1~4 在 resources，source5+ 在 levels2
+// （levels2 在微信构建时由后处理脚本配置为分包）
+const LEVELS2_START = 5;
 const MOVE_DURATION = 0.07;         // 滑动动画时长（秒）
 const FAST_TIME = 30;               // 30 秒内完成用 finish2 结算图（对应 Unity 版 elapsedTime < 30f）
 
@@ -87,6 +90,7 @@ export class PuzzleGame extends Component {
     private bgShowLv = 0;                       // 当前显示的关卡图（避免连续重复）
     private startBg: Sprite | null = null;      // 开始页固定背景（source1 整图）
     private startLoadingLabel: Label | null = null; // 开始页「Loading...」（资源检测完隐藏）
+    private levels2Bundle: any = null;              // source5+ 所在 bundle（微信小游戏分包）
 
     // ---------- 计时器 ----------
     private elapsed = 0;
@@ -114,6 +118,24 @@ export class PuzzleGame extends Component {
     // 关卡检测：按 source1、source2... 是否存在资源来数关卡
     // =====================================================================
 
+    /** 关卡资源统一入口：source1~4 在 resources，source5+ 在 levels2（微信分包） */
+    private loadLevelAsset<T extends Asset>(lv: number, path: string, type: new (...args: any[]) => T,
+                                            cb: (err: Error | null, asset: T | null) => void) {
+        if (lv < LEVELS2_START) {
+            resources.load(path, type, cb);
+            return;
+        }
+        if (this.levels2Bundle) {
+            this.levels2Bundle.load(path, type, cb);
+            return;
+        }
+        assetManager.loadBundle('levels2', (err, bundle) => {
+            if (err || !bundle) { cb(err ?? new Error('levels2 bundle missing'), null); return; }
+            this.levels2Bundle = bundle;
+            bundle.load(path, type, cb);
+        });
+    }
+
     private detectLevels() {
         // 并行探测 source1..MAX_PROBE（串行逐关下载在网络慢时要等几十秒，
         // 其间开始页没背景、点 Start 也没反应）。全部回调或超时后按「连续存在」的关数结算
@@ -129,7 +151,7 @@ export class PuzzleGame extends Component {
             this.onDetectDone();
         };
         for (let lv = 1; lv <= MAX_PROBE; lv++) {
-            resources.load(`source${lv}/full/spriteFrame`, SpriteFrame, (err, sf) => {
+            this.loadLevelAsset(lv, `source${lv}/full/spriteFrame`, SpriteFrame, (err, sf) => {
                 pending--;
                 if (!err && sf) {
                     this.thumbFrames[lv] = sf;
@@ -472,7 +494,7 @@ export class PuzzleGame extends Component {
     /** 优先加载整图 source{level}/full 运行时切块；否则回退到单独的 1~12 图片 */
     private loadImages(level: number) {
         const token = this.loadToken;
-        resources.load(`source${level}/full/spriteFrame`, SpriteFrame, (err, fullSf) => {
+        this.loadLevelAsset(level, `source${level}/full/spriteFrame`, SpriteFrame, (err, fullSf) => {
             if (token !== this.loadToken) return;
             if (!err && fullSf && fullSf.texture) {
                 this.applyFullImage(fullSf);
@@ -480,7 +502,7 @@ export class PuzzleGame extends Component {
             }
             // 回退：单独的拼图块图片，缺哪块就用占位色块
             for (let piece = 0; piece < COUNT; piece++) {
-                resources.load(`source${level}/${piece + 1}/spriteFrame`, SpriteFrame, (e2, sf) => {
+                this.loadLevelAsset(level, `source${level}/${piece + 1}/spriteFrame`, SpriteFrame, (e2, sf) => {
                     if (token !== this.loadToken || e2 || !sf) return;
                     this.pieceFrames[piece] = sf;
                     this.updatePieceVisual(piece);
@@ -632,7 +654,7 @@ export class PuzzleGame extends Component {
             }
         };
         if (this.elapsed < FAST_TIME) {
-            resources.load(`source${this.currentLevel}/finish/spriteFrame`, SpriteFrame, (err, sf) => {
+            this.loadLevelAsset(this.currentLevel, `source${this.currentLevel}/finish/spriteFrame`, SpriteFrame, (err, sf) => {
                 showOverlay(err || !sf ? null : sf);
             });
         } else {
