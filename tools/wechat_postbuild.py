@@ -21,6 +21,17 @@ if os.path.exists(appid_file):
         if cfg.get('appid') != appid:
             cfg['appid'] = appid
             json.dump(cfg, open(pc, 'w', encoding='utf-8'), ensure_ascii=False)
+    # 隔离沙箱(WAGameSubContext)里 web-adapter 建 window 会崩
+    # (Object.defineProperty called on non-object → 黑屏)，必须关掉；
+    # widelyUsed 会解析到灰度基础库(如 3.17.2)，固定到稳定版
+    always = {'useIsolateContext': False}
+    changed = any(cfg['setting'].get(k) != v for k, v in always.items()) or cfg.get('libVersion') != '3.8.12'
+    cfg['setting'].update(always)
+    cfg['libVersion'] = '3.8.12'
+    if changed:
+        json.dump(cfg, open(pc, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+        print('project.config.json: useIsolateContext=false, libVersion=3.8.12')
+    else:
         print('appid =', appid)
 
 # 1. 移动 bundle 目录
@@ -54,6 +65,23 @@ g = json.load(open(gj, encoding='utf-8'))
 g['subpackages'] = [{'root': f'subpackages/{n}/', 'name': n} for n in BUNDLES]
 json.dump(g, open(gj, 'w', encoding='utf-8'), indent=4, ensure_ascii=False)
 print('game.json subpackages =', g['subpackages'])
+
+# 3.5 game.js 注入 window 兼容垫片：
+#    新版开发者工具把游戏跑在 WAGameSubContext("mp")里，没有预置 window 全局，
+#    web-adapter 的 devtools 分支 Object.defineProperty(window,...) 直接
+#    TypeError "called on non-object" → 黑屏。预置 window=GameGlobal 恢复旧语义；
+#    旧环境/真机本身有 window 或走 else 分支，此垫片为空操作。
+gjs = os.path.join(BUILD, 'game.js')
+src = open(gjs, encoding='utf-8').read()
+if '// PATCH(window-compat)' not in src:
+    shim = (
+        "// PATCH(window-compat): new devtools WAGameSubContext has no predefined `window` global;\n"
+        "    // web-adapter devtools branch does Object.defineProperty(window,...) -> TypeError (black screen).\n"
+        "    if (typeof window === 'undefined' && typeof GameGlobal !== 'undefined') { GameGlobal.window = GameGlobal; }\n"
+        "    require('./web-adapter');")
+    src = src.replace("require('./web-adapter');", shim, 1)
+    open(gjs, 'w', encoding='utf-8').write(src)
+    print('game.js: window shim injected')
 
 # 4. 体积核对
 def du(path):
