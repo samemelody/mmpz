@@ -18,6 +18,11 @@ for name in BUNDLES:
     dst = os.path.join(sub_dir, name)
     if os.path.exists(src):
         shutil.move(src, dst)
+    # 微信要求分包根目录必须有 game.js 入口（本分包只含资源，注释空壳即可）
+    gj_path = os.path.join(dst, 'game.js')
+    if not os.path.exists(gj_path):
+        open(gj_path, 'w', encoding='utf-8').write(
+            '// subpackage entry required by WeChat; bundle contains assets only, no scripts\n')
     print('subpackage:', dst, os.path.isdir(dst))
 
 # 2. settings.json
