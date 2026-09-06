@@ -275,9 +275,13 @@ export class PuzzleGame extends Component {
         }
 
         // 完成结算图：直接盖在拼图上（不弹单独的框），保持宽高比铺满棋盘
+        // 半透明黑底兜底：结算图万一没显示，至少有明显的"已完成"视觉反馈
         const overlay = this.createNode('completeOverlay', layer, GRID_W, GRID_H, new Vec3(0, 0, 0));
         overlay.active = false;
-        overlay.addComponent(Mask);
+        const dim = overlay.addComponent(Graphics);
+        dim.fillColor = new Color(0, 0, 0, 160);
+        dim.roundRect(-GRID_W / 2, -GRID_H / 2, GRID_W, GRID_H, 0);
+        dim.fill();
         this.completeOverlay = this.createCoverSprite(overlay);
 
         // 计时器 + 最佳纪录
@@ -652,19 +656,17 @@ export class PuzzleGame extends Component {
 
         // 结算：不弹单独的框，直接把完成图盖在拼图上
         // 30 秒内用 finish 图，超过 30 秒用 full 整图；没有 finish 图时也用整图
+        // 注意：overlay 在 grid 之后创建（同层），天然渲染在上层，无需再调 sibling
         const showOverlay = (sf: SpriteFrame | null) => {
             const frame = sf || this.fullFrame;
-            if (frame) {
-                this.setCoverSprite(this.completeOverlay, frame);
-                // 最后一次滑动把移动块 setSiblingIndex(COUNT+5) 置顶了，
-                // 结算图必须提到最上层，否则被刚滑动的块压住
-                this.completeOverlay!.node.setSiblingIndex(1 << 30);
-                this.completeOverlay!.node.active = true;
-            }
+            console.log(`[win] frame=${sf ? 'finish' : (this.fullFrame ? 'full' : 'NONE')}`);
+            if (frame) this.setCoverSprite(this.completeOverlay, frame);
+            this.completeOverlay!.node.active = true; // 无图时也有半透明黑底兜底
         };
         this.finished = true; // 禁用拼图块点击（见 onPieceClick）
         if (this.elapsed < FAST_TIME) {
             this.loadLevelAsset(this.currentLevel, `source${this.currentLevel}/finish/spriteFrame`, SpriteFrame, (err, sf) => {
+                if (err) console.log(`[win] finish load err: ${err}`);
                 showOverlay(err || !sf ? null : sf);
             });
         } else {
