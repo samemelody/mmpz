@@ -10,29 +10,27 @@ import shutil
 BUILD = 'build/wechatgame'
 BUNDLES = ['resources', 'levels2']  # source1~4 + 字体 / source5~8
 
-# 正式 AppID：把 wx 开头的 AppID 写进 tools/wx_appid.txt（仅一行），
-# 每次构建后自动替换 Cocos 占位的 wx6ac3f5090a6b99c5；没有该文件则保持占位（测试号导入时手动选）
+# 正式 AppID：把 wx 开头的 AppID 写进 tools/wx_appid.txt（仅一行），构建后自动写入 project.config.json；
+# 没有该文件就用测试号 touristappid（Cocos 占位的 wx6ac3f5090a6b99c5 是无效的）
 appid_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'wx_appid.txt')
-if os.path.exists(appid_file):
-    appid = open(appid_file, encoding='utf-8').read().strip()
-    if appid.startswith('wx'):
-        pc = os.path.join(BUILD, 'project.config.json')
-        cfg = json.load(open(pc, encoding='utf-8'))
-        if cfg.get('appid') != appid:
-            cfg['appid'] = appid
-            json.dump(cfg, open(pc, 'w', encoding='utf-8'), ensure_ascii=False)
-    # 隔离沙箱(WAGameSubContext)里 web-adapter 建 window 会崩
-    # (Object.defineProperty called on non-object → 黑屏)，必须关掉；
-    # widelyUsed 会解析到灰度基础库(如 3.17.2)，固定到稳定版
-    always = {'useIsolateContext': False}
-    changed = any(cfg['setting'].get(k) != v for k, v in always.items()) or cfg.get('libVersion') != '3.8.12'
-    cfg['setting'].update(always)
-    cfg['libVersion'] = '3.8.12'
-    if changed:
-        json.dump(cfg, open(pc, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
-        print('project.config.json: useIsolateContext=false, libVersion=3.8.12')
-    else:
-        print('appid =', appid)
+appid = open(appid_file, encoding='utf-8').read().strip() if os.path.exists(appid_file) else ''
+if not appid.startswith('wx'):
+    appid = 'touristappid'
+pc = os.path.join(BUILD, 'project.config.json')
+cfg = json.load(open(pc, encoding='utf-8'))
+if cfg.get('appid') != appid:
+    cfg['appid'] = appid
+# 隔离沙箱(WAGameSubContext)里 web-adapter 建 window 会崩
+# (Object.defineProperty called on non-object → 黑屏)，必须关掉；
+# widelyUsed 会解析到灰度基础库(如 3.17.2)，固定到稳定版
+always = {'useIsolateContext': False}
+need_write = cfg.get('appid') != appid or any(cfg['setting'].get(k) != v for k, v in always.items()) or cfg.get('libVersion') != '3.8.12'
+cfg['appid'] = appid
+cfg['setting'].update(always)
+cfg['libVersion'] = '3.8.12'
+if need_write:
+    json.dump(cfg, open(pc, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+    print('project.config.json: appid =', appid, '| useIsolateContext=false | libVersion=3.8.12')
 
 # 1. 移动 bundle 目录
 sub_dir = os.path.join(BUILD, 'subpackages')
