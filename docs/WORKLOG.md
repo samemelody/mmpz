@@ -2,6 +2,19 @@
 
 > 每次开发完往这里追加一节。忘了进度先看最上面的「当前状态」，再看最下面的日期倒序日志。
 
+## 2026-09-06（开发者工具新版运行时兼容 + 构建 dev/release 双模式）
+
+**背景**：微信开发者工具 2.02.2608060 把小游戏放进了新的运行时/编译管线，之前能跑的结构在模拟器里接连报错。
+
+- **隔离沙箱崩溃**：`env: Windows,mp` + `WAGameSubContext` 里没有预置 `window` 全局，Cocos `web-adapter` 的 devtools 分支 `Object.defineProperty(window,...)` 直接 TypeError → 黑屏。修复：`project.config.json` 里 `useIsolateContext:false` + `libVersion:"3.8.12"`（避开灰度 3.17.2），并且 `game.js` 注入垫片 `if (typeof window==='undefined') GameGlobal.window=GameGlobal`
+- **summer-compiler miss js file / module not defined**：模拟器对"构建后手动移动出来的 `subpackages/`"兼容性差，文件索引缓存反复失灵。结论：**模拟器/开发阶段不要用分包**
+- **最终架构**（tools/wechat_postbuild.py 双模式）：
+  - `python tools/wechat_postbuild.py`（dev，默认）：Cocos 默认结构不分包，整包 8.5MB，`bigPackageSizeSupport:true` 放宽。**只用于模拟器**（预览上传有 8MB 限制会失败）
+  - `python tools/wechat_postbuild.py --release`：bundle 拆 `subpackages/`（主包 2.96MB）。**手机预览/上传用**；真机加载分包已验证可用
+  - 切换模式后必须重新构建（bundle 目录被移动过）
+- AppID：`tools/wx_appid.txt`（gitignore），构建后自动注入 project.config.json；无则用测试号 touristappid。GitHub 扫到的是 Cocos 模板公共占位 AppID，非泄露
+- 通关结算增强：结算层加半透明黑底兜底 + `[win]` 日志定位图片加载；验证手段：`wechatide simulator_refresh` + `simulator_screenshot`
+
 ## 2026-09-05（晚：游戏名《萌萌拼图》）
 
 - 游戏定名**《萌萌拼图》**（MM → 萌萌，品牌延续）。背景：微信小游戏备案 IAA 通道（个人主体+纯广告变现）用「著作权自我声明」即可**不强制软著**，但游戏名含英文就必须补软著证书——纯中文名是最省事的路线（个人主体也开不了内购，IAA 是唯一变现方式）
