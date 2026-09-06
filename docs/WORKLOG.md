@@ -14,6 +14,13 @@
   - 切换模式后必须重新构建（bundle 目录被移动过）
 - AppID：`tools/wx_appid.txt`（gitignore），构建后自动注入 project.config.json；无则用测试号 touristappid。GitHub 扫到的是 Cocos 模板公共占位 AppID，非泄露
 - 通关结算增强：结算层加半透明黑底兜底 + `[win]` 日志定位图片加载；验证手段：`wechatide simulator_refresh` + `simulator_screenshot`
+- **"结算图盖不住拼图"的真凶**（拖了两天才定位）：`completeOverlay` 字段持有的是容器**子节点 img** 的 Sprite，
+  而 `active=false` 一直设在**容器** `completeOverlayRoot` 上；修复时误开子节点 `img.active=true`，
+  父容器 inactive 导致整棵子树不渲染。教训：**active 开关必须作用在容器节点上**，引用链上要多留一层容器引用。
+  次要修复：finish 图加载回调 3 秒不返回就回退整图（`scheduleOnce` 兜底）。
+- 排查手段沉淀：模拟器黑屏/不动先怀疑**编译缓存**（按项目名+AppID 做 key，跨目录共享），
+  用"画面上做版本标记（黄色 v3 角标）+ 全新目录（build/sim3）+ 改 projectname"三板斧破缓存；
+  `cp -r src/. dst/`（注意带 `/.`）原地覆盖 + `simulator_refresh` 即可热更新 sim 调试目录
 
 ## 2026-09-05（晚：游戏名《萌萌拼图》）
 
