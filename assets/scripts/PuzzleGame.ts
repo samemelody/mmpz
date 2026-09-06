@@ -64,6 +64,7 @@ export class PuzzleGame extends Component {
     private pieceImgs: (Sprite | null)[] = new Array(COUNT).fill(null);
     private slicedFrames: SpriteFrame[] = [];   // 运行时切块生成的帧（重开时销毁；资源帧不销毁）
     private moving = false;                     // 滑动动画期间锁输入
+    private finished = false;                   // 本局已通关：禁用拼图块点击
     private loadToken = 0;                      // 防止切关卡时旧加载回调写脏数据
 
     // ---------- 关卡 ----------
@@ -457,6 +458,7 @@ export class PuzzleGame extends Component {
         this.elapsed = 0;
         this.timerRunning = false;
         this.moving = false;
+        this.finished = false;
         this.loadToken++;
         this.updateTimerText();
 
@@ -588,7 +590,7 @@ export class PuzzleGame extends Component {
      * 数据立刻更新，节点位置用 tween 播放滑动动画。
      */
     private onPieceClick(piece: number) {
-        if (this.moving) return;
+        if (this.moving || this.finished) return;
 
         const slot = this.slotPieces.indexOf(piece);
         const emptySlot = this.slotPieces.indexOf(EMPTY);
@@ -654,9 +656,13 @@ export class PuzzleGame extends Component {
             const frame = sf || this.fullFrame;
             if (frame) {
                 this.setCoverSprite(this.completeOverlay, frame);
+                // 最后一次滑动把移动块 setSiblingIndex(COUNT+5) 置顶了，
+                // 结算图必须提到最上层，否则被刚滑动的块压住
+                this.completeOverlay!.node.setSiblingIndex(1 << 30);
                 this.completeOverlay!.node.active = true;
             }
         };
+        this.finished = true; // 禁用拼图块点击（见 onPieceClick）
         if (this.elapsed < FAST_TIME) {
             this.loadLevelAsset(this.currentLevel, `source${this.currentLevel}/finish/spriteFrame`, SpriteFrame, (err, sf) => {
                 showOverlay(err || !sf ? null : sf);
