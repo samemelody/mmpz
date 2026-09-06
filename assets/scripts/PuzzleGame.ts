@@ -80,6 +80,7 @@ export class PuzzleGame extends Component {
     private startPage: Node | null = null;
     private levelPage: Node | null = null;
     private completeOverlay: Sprite | null = null; // 完成后盖在拼图上的整图（保持宽高比铺满）
+    private completeOverlayRoot: Node | null = null; // completeOverlay 的父容器（黑底+Mask 所在，active 开关作用于此）
     private fullFrame: SpriteFrame | null = null;
     private levelCardLabels: Label[] = [];
     private page: 'start' | 'level' | 'game' = 'start'; // 当前所在页面（异步建页时防止盖错）
@@ -276,6 +277,8 @@ export class PuzzleGame extends Component {
 
         // 完成结算图：直接盖在拼图上（不弹单独的框），保持宽高比铺满棋盘
         // 半透明黑底兜底：结算图万一没显示，至少有明显的"已完成"视觉反馈
+        // 注意：completeOverlay 引用的是 overlay 的子节点 img 的 Sprite；
+        // active 开关必须作用在 overlay 容器上（容器不 active，子树整体不渲染）
         const overlay = this.createNode('completeOverlay', layer, GRID_W, GRID_H, new Vec3(0, 0, 0));
         overlay.active = false;
         const dim = overlay.addComponent(Graphics);
@@ -283,6 +286,7 @@ export class PuzzleGame extends Component {
         dim.roundRect(-GRID_W / 2, -GRID_H / 2, GRID_W, GRID_H, 0);
         dim.fill();
         this.completeOverlay = this.createCoverSprite(overlay);
+        this.completeOverlayRoot = overlay;
 
         // 计时器 + 最佳纪录
         this.timerLabel = this.createLabel(layer, '00:00', 84, Color.WHITE, new Vec3(0, GRID_H / 2 + 120, 0));
@@ -477,7 +481,7 @@ export class PuzzleGame extends Component {
         if (this.levelPage) this.levelPage.active = false;
         if (this.completeOverlay) {
             this.setCoverSprite(this.completeOverlay, null);
-            this.completeOverlay.node.active = false;
+            this.completeOverlayRoot!.active = false; // 关容器（只关子节点 img 没用）
         }
         if (this.resultLabel) this.resultLabel.string = '';
         this.setCoverSprite(this.bgSprite, null);
@@ -656,21 +660,26 @@ export class PuzzleGame extends Component {
 
         // 结算：不弹单独的框，直接把完成图盖在拼图上
         // 30 秒内用 finish 图，超过 30 秒用 full 整图；没有 finish 图时也用整图
-        // 注意：overlay 在 grid 之后创建（同层），天然渲染在上层，无需再调 sibling
         const showOverlay = (sf: SpriteFrame | null) => {
             const frame = sf || this.fullFrame;
-            console.log(`[win] frame=${sf ? 'finish' : (this.fullFrame ? 'full' : 'NONE')}`);
             if (frame) this.setCoverSprite(this.completeOverlay, frame);
-            this.completeOverlay!.node.active = true; // 无图时也有半透明黑底兜底
+            this.completeOverlayRoot!.active = true; // 开容器（active 必须作用在容器上，误开子节点 img 整棵子树不渲染）
         };
         this.finished = true; // 禁用拼图块点击（见 onPieceClick）
+        let settled = false;
+        const showOnce = (sf: SpriteFrame | null) => {
+            if (settled) return;
+            settled = true;
+            showOverlay(sf);
+        };
         if (this.elapsed < FAST_TIME) {
+            // 兜底：finish 图加载回调万一不回来（微信环境实测出现过），3 秒后直接用整图结算
+            this.scheduleOnce(() => showOnce(null), 3);
             this.loadLevelAsset(this.currentLevel, `source${this.currentLevel}/finish/spriteFrame`, SpriteFrame, (err, sf) => {
-                if (err) console.log(`[win] finish load err: ${err}`);
-                showOverlay(err || !sf ? null : sf);
+                showOnce(err || !sf ? null : sf);
             });
         } else {
-            showOverlay(null);
+            showOnce(null);
         }
 
         // 保存最佳纪录（对应 Unity 版 PlayerPrefs）
