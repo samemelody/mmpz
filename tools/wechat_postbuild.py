@@ -31,12 +31,15 @@ cfg = json.load(open(pc, encoding='utf-8'))
 # widelyUsed 会解析到灰度基础库(如 3.17.2)，固定到稳定版；
 # bigPackageSizeSupport 允许开发模式下主包超 4MB
 always = {'useIsolateContext': False, 'bigPackageSizeSupport': True}
+# 基础库：dev 固定 3.8.12（模拟器避开灰度库）；release 保持 widelyUsed——
+# 手机预览会用到该字段，3.8.12 在真机上会黑屏（2026-09-06 实测），widelyUsed 正常
+lib_target = 'widelyUsed' if RELEASE else '3.8.12'
 need_write = (cfg.get('appid') != appid
               or any(cfg['setting'].get(k) != v for k, v in always.items())
-              or cfg.get('libVersion') != '3.8.12')
+              or cfg.get('libVersion') != lib_target)
 cfg['appid'] = appid
 cfg['setting'].update(always)
-cfg['libVersion'] = '3.8.12'
+cfg['libVersion'] = lib_target
 if need_write:
     json.dump(cfg, open(pc, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
     print('project.config.json: appid =', appid, '| useIsolateContext=false | libVersion=3.8.12 | bigPackageSizeSupport=true')
