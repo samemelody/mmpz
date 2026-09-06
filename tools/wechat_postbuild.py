@@ -11,7 +11,7 @@ BUILD = 'build/wechatgame'
 BUNDLES = ['resources', 'levels2']  # source1~4 + 字体 / source5~8
 
 # 正式 AppID：把 wx 开头的 AppID 写进 tools/wx_appid.txt（仅一行），构建后自动写入 project.config.json；
-# 没有该文件就用测试号 touristappid（Cocos 占位的 wx6ac3f5090a6b99c5 是无效的）
+# 没有该文件就用测试号 touristappid（Cocos 构建模板自带的占位 AppID 是无效的）
 appid_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'wx_appid.txt')
 appid = open(appid_file, encoding='utf-8').read().strip() if os.path.exists(appid_file) else ''
 if not appid.startswith('wx'):
