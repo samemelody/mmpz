@@ -18,13 +18,13 @@ if not appid.startswith('wx'):
     appid = 'touristappid'
 pc = os.path.join(BUILD, 'project.config.json')
 cfg = json.load(open(pc, encoding='utf-8'))
-if cfg.get('appid') != appid:
-    cfg['appid'] = appid
 # 隔离沙箱(WAGameSubContext)里 web-adapter 建 window 会崩
 # (Object.defineProperty called on non-object → 黑屏)，必须关掉；
 # widelyUsed 会解析到灰度基础库(如 3.17.2)，固定到稳定版
 always = {'useIsolateContext': False}
-need_write = cfg.get('appid') != appid or any(cfg['setting'].get(k) != v for k, v in always.items()) or cfg.get('libVersion') != '3.8.12'
+need_write = (cfg.get('appid') != appid
+              or any(cfg['setting'].get(k) != v for k, v in always.items())
+              or cfg.get('libVersion') != '3.8.12')
 cfg['appid'] = appid
 cfg['setting'].update(always)
 cfg['libVersion'] = '3.8.12'
